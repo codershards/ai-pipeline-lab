@@ -56,7 +56,7 @@ jobs:
                   "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
                 },
                 body: JSON.stringify({
-                  model: "gpt-5-mini",  // any current mini-class model
+                  model: "gpt-4o-mini",  // any current mini-class model
                   messages: [{ role: "user", content: prompt }],
                   temperature: 0
                 })
@@ -64,6 +64,19 @@ jobs:
             );
 
             const data = await response.json();
+
+            if (!data.choices || !data.choices.length) {
+              // API returned an error object (bad key, model not enabled on
+              // your account, quota) - post it as the comment instead of crashing
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `## AI Code Review\n\n**LLM API call failed.** HTTP ${response.status}\n\n\`\`\`json\n${JSON.stringify(data, null, 2).slice(0, 1500)}\n\`\`\``
+              });
+              return;
+            }
+
             const review = data.choices[0].message.content;
 
             await github.rest.issues.createComment({
